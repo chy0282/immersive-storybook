@@ -1031,9 +1031,9 @@ body:not(.classroom-active) .only-classroom,
 #walkView {position:relative;min-height:0;isolation:isolate;touch-action:none;overflow:clip;}
 #walkCamera {position:absolute;inset:0;transform-origin:0 0;pointer-events:none;}
 .ex-gong-face {position:absolute;left:34%;top:4%;width:51%;height:32%;pointer-events:none;}
-#walkMount {position:absolute;left:50%;top:50%;width:1100px;height:670px;transform:translate(-50%,-50%) scale(var(--walk-scale,1));pointer-events:none;}
+#walkMount {position:absolute;left:50%;top:50%;width:1100px;height:670px;transform:translate(-50%,-50%);pointer-events:none;}
 #walkLens {position:absolute;inset:0;perspective:1750px;perspective-origin:50% 48%;}
-#walkWorld {position:absolute;width:960px;height:520px;top:143px;left:70px;transform:translate3d(var(--walk-pan,0px),var(--walk-lift,0px),0) scale(var(--walk-near,1)) rotateX(45deg) rotateZ(-3deg);transform-style:preserve-3d;}
+#walkWorld {position:absolute;width:960px;height:520px;top:143px;left:70px;transform:rotateX(45deg) rotateZ(-3deg);transform-style:preserve-3d;}
 .ex-group,.ex-box,.ex-upright,.ex-actor,.ex-part {transform-style:preserve-3d;}
 .ex-group,.ex-box,.ex-face,.ex-upright,.ex-actor,.ex-piece,.ex-shadow,.ex-anchor,.ex-part,.ex-stage-floor {position:absolute;left:0;top:0;}
 .ex-stage-floor {inset:0;pointer-events:auto;cursor:crosshair;border:6px solid #f5e5be;border-radius:6px;background-color:#d0d4a3;background-image:var(--fibres),linear-gradient(90deg,transparent 49.6%,#b3b88955 49.9%,#f9ebbd90 50.15%,transparent 50.4%),repeating-linear-gradient(0deg,transparent 0 51px,#8d9b7360 52px,#f1edc666 54px),repeating-linear-gradient(90deg,transparent 0 76px,#9cad8366 77px,#f5edc755 79px);}
@@ -3417,4 +3417,4 @@ const classroom=(()=>{
  }
  return {showDiscussion(){if(step!==3)setStep(3);},showGuide(visible){bird?.sync(visible);},get active(){return active;},get zoom(){return zoom;},enter,leave,bind,changeZoom,bestView,rotate,finishLine,syncCamera:cameraControls};
 })();
-</script><script src="chapters.js"></script></body></html>
+</script><script src="chapters.js?v=43bfa2e43e9b"></script></body></html>

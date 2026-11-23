@@ -259,7 +259,8 @@ function makeClassroomModel(art, onFloor) {
   const view=$('walkView'), world=$('walkWorld'), mount=$('walkMount');
   const field=new classroomPaper.WalkField({radius:9,step:5});
   const figures={}, stations=new Map(), touchTargets=new Map();
-  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced=()=>motionPreference.matches;
   const px=value=>value+'px';
   function node(parent,cls,tag='div'){
     const el=document.createElement(tag);el.className=cls;parent.append(el);return el;
@@ -472,7 +473,7 @@ function makeClassroomModel(art, onFloor) {
     if(portrait){cameraLayer.style.transform='';portrait=null;}
   }
   function framePortrait(progress){
-    const w=view.clientWidth,h=view.clientHeight;
+    const w=lastWidth,h=lastHeight;
     if(!portrait||w!==portrait.width||h!==portrait.height){
       cameraLayer.style.transform='';
       const bounds=view.getBoundingClientRect(),head=face.getBoundingClientRect();
@@ -484,18 +485,22 @@ function makeClassroomModel(art, onFloor) {
     const eased=progress*progress*(3-2*progress);
     cameraLayer.style.transform='translate('+px(portrait.x*eased)+','+px(portrait.y*eased)+') scale('+(1+(portrait.zoom-1)*eased)+')';
   }
-  const heroShadow=shadow(478,62,80,29);
+  const heroShadow=size(node(world,'ex-shadow'),80,29);
   const cast=flat(world,478,62,1.4,79,72,'#59694942');
   cast.style.mask='url("'+CAREER_ART.careerTeacher+'") center bottom / 100% 100% no-repeat';
   cast.style.transformOrigin='50% 100%';
   let scale=1,pan=0,lift=0,near=1,lastWidth=0,lastHeight=0;
   let beat='',current=null,locomotion=0,facing=1;
+  let layoutChanged=true;
   function fit(){
-    const w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;
+    const w=view.clientWidth,h=view.clientHeight;
+    if(!w||!h||(w===lastWidth&&h===lastHeight))return;
     lastWidth=w;lastHeight=h;scale=Math.min(w/1120,h/635);
-    mount.style.setProperty('--walk-scale',scale);
+    layoutChanged=true;
+    mount.style.transform='translate(-50%,-50%) scale('+scale+')';
     world.style.setProperty('--help-edge',px(Math.max(1.8,Math.min(6,2.4/scale))));
   }
+  new ResizeObserver(fit).observe(view);
   function pose(state,id,done){
     beat=state;current=id;world.classList.toggle('hero-cue',state==='ask');
     world.classList.toggle('portrait',state==='closeup'||state==='summary');
@@ -511,14 +516,15 @@ function makeClassroomModel(art, onFloor) {
   }
   function hits(){
     const origin=$('walkTargets').getBoundingClientRect();
-    function place(el,left,top,right,bottom){
+    const targets=[];
+    function collect(el,left,top,right,bottom){
       const w=Math.max(44,right-left),h=Math.max(44,bottom-top);
-      Object.assign(el.style,{left:px((left+right-w)/2-origin.left),top:px((top+bottom-h)/2-origin.top),width:px(w),height:px(h)});
+      targets.push([el,(left+right-w)/2-origin.left,(top+bottom-h)/2-origin.top,w,h]);
     }
     const teacher=$('walkHero');
     if(!teacher.hidden){
       const r=hero.skin.getBoundingClientRect();
-      place(teacher,r.left,r.top,r.right,r.bottom);
+      collect(teacher,r.left,r.top,r.right,r.bottom);
     }
     for(const {button,obj} of touchTargets.values()){
       if(button.hidden)continue;
@@ -530,7 +536,11 @@ function makeClassroomModel(art, onFloor) {
         left=Math.min(left,box.left);right=Math.max(right,box.right);
         top=Math.min(top,box.top);bottom=Math.max(bottom,box.bottom);
       }
-      place(button,left,top,right,bottom);
+      collect(button,left,top,right,bottom);
+    }
+    // Measure all 3D anchors before changing any of their screen-space buttons.
+    for(const [button,x,y,w,h] of targets){
+      Object.assign(button.style,{left:px(x),top:px(y),width:px(w),height:px(h)});
     }
   }
   const clamp=n=>Math.max(0,Math.min(1,n));
@@ -566,17 +576,21 @@ function makeClassroomModel(art, onFloor) {
   }
   const fold=new classroomPaper.FlapSpring({size:.48}),avatarLegs=hero.skin.querySelectorAll('.ex-part');
   let foldAge=2,propsKey='',prevCamera='',lastDrawnPose='';
+  let lastHeroX,lastHeroZ,lastStride;
   function startFold(){foldAge=0;fold.reset(reduced()?1:0);fold.set(1);}
   function frame(pos,dx,dz,dt,t,elapsed,done){
-    if(!lastWidth||lastWidth!==view.clientWidth||lastHeight!==view.clientHeight)fit();
+    if(!lastWidth)fit();
     const walking=Math.hypot(dx,dz)>.02,quiet=reduced();
     if(walking){locomotion+=Math.hypot(dx,dz)*.097;if(Math.abs(dx)>.15)facing=dx<0?1:-1;}
     const stride=quiet||!walking?0:Math.sin(locomotion);
-    move(hero.base,pos.x,pos.z,Math.abs(stride)*2.6);
-    hero.skin.style.transform='scaleX('+facing+') rotate('+stride*1.6+'deg)';
-    avatarLegs[0].style.transform='rotate('+stride*10+'deg)';avatarLegs[1].style.transform='rotate('+(-stride*10)+'deg)';
-    heroShadow.style.left=px(pos.x-37);heroShadow.style.top=px(pos.z-8);
-    cast.style.transform='translate3d('+(pos.x-38)+'px,'+(pos.z-70)+'px,1.4px) skewX(-33deg) scaleX('+facing+')';
+    if(pos.x!==lastHeroX||pos.z!==lastHeroZ||stride!==lastStride){
+      move(hero.base,pos.x,pos.z,Math.abs(stride)*2.6);
+      hero.skin.style.transform='scaleX('+facing+') rotate('+stride*1.6+'deg)';
+      avatarLegs[0].style.transform='rotate('+stride*10+'deg)';avatarLegs[1].style.transform='rotate('+(-stride*10)+'deg)';
+      move(heroShadow,pos.x-37,pos.z-8,.7);
+      cast.style.transform='translate3d('+(pos.x-38)+'px,'+(pos.z-70)+'px,1.4px) skewX(-33deg) scaleX('+facing+')';
+      lastHeroX=pos.x;lastHeroZ=pos.z;lastStride=stride;
+    }
     foldAge+=dt;
     if(foldAge<1.9){const f=fold.step(dt);hero.el.style.transform='rotateX('+(-86*f)+'deg)';}
     else hero.el.style.transform='rotateX(-86deg)';
@@ -588,17 +602,20 @@ function makeClassroomModel(art, onFloor) {
     const targetX=close&&obj?(480-(obj.x+pos.x)*.5)*.99:(478-pos.x)*.09;
     const targetY=close&&obj?(269-obj.z)*.42:(258-pos.z)*.04;
     near+=(targetNear-near)*k;pan+=(targetX-pan)*k;lift+=(targetY-lift)*k;
-    const camera=[pan.toFixed(1),lift.toFixed(1),near.toFixed(3),scale].join('/');
+    // A transform on the camera moves the room without invalidating inherited
+    // styles (and the embedded paper textures) on every piece of furniture.
+    const camera='translate3d('+px(pan.toFixed(1))+','+px(lift.toFixed(1))+',0) scale('+near.toFixed(3)+') rotateX(45deg) rotateZ(-3deg)';
     if(camera!==prevCamera){
-      world.style.setProperty('--walk-pan',px(+pan.toFixed(1)));world.style.setProperty('--walk-lift',px(+lift.toFixed(1)));
-      world.style.setProperty('--walk-near',near.toFixed(3));
+      world.style.transform=camera;
     }
     if(portraitBeat)framePortrait(quiet||beat==='summary'?1:Math.min(1,elapsed/teacherZoomDuration));
     else clearPortrait();
     const sample=quiet?10:Math.min(4,elapsed),propFrame=[beat,current,...done,beat==='result'?Math.floor(sample*25):0].join('/');
     if(propsKey!==propFrame){animateProps(t,sample,done);propsKey=propFrame;}
-    const poseKey=[beat,current,pos.x,pos.z,view.offsetTop,view.offsetLeft,foldAge<1.9?foldAge:0].join('/');
-    if(camera!==prevCamera||poseKey!==lastDrawnPose){hits();lastDrawnPose=poseKey;prevCamera=camera;}
+    const poseKey=[beat,current,pos.x,pos.z,foldAge<1.9?foldAge:0].join('/');
+    if(layoutChanged||camera!==prevCamera||poseKey!==lastDrawnPose){
+      hits();lastDrawnPose=poseKey;prevCamera=camera;layoutChanged=false;
+    }
     const paper=$('walkPaper');
     if(paper.parentElement===$('walkSpeechMount')&&obj){
       const speaker=beat==='reply'?hero:obj.child||(beat==='shareRed'?obj.right:obj.left);
@@ -849,7 +866,8 @@ const deskAdventure=(()=>{
     math:{speaker:'同學問',ask:'老師，這題我不懂。你可以教我嗎？',reply:'可以，我們一起數一數。',result:'三粒紅珠，加兩粒黃珠，一共有五粒！',duration:2.2},
     art:{speaker:'兩位同學說',ask:'我想先用！',reply:'先放手，輪流說，我來聽。',result:'他們分好顏色筆，一起畫畫。',duration:1.2}
   };
-  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced=()=>motionPreference.matches;
   let model,bird,live=false,phase='roam',station=null,done=new Set(),history=[];
   let pos={x:478,y:0,z:62},path=[],lastDesk=null,keys=new Set();
   let frameId=0,lastTime=0,phaseTime=0,clock=0,typeTimer=0,wholeLine='',shown=0;
@@ -1040,7 +1058,8 @@ const deskAdventure=(()=>{
     if(!path.length&&phase==='going'){
       lastDesk=station;transition('ask',station,false);readerSound.play('tap');
     }else if(phase==='roam'&&length)checkNearby();
-    $('walkNext').disabled=resultPlaying();
+    const next=$('walkNext'),playing=resultPlaying();
+    if(next.disabled!==playing)next.disabled=playing;
     model.frame(pos,pos.x-prevX,pos.z-prevZ,dt,clock,phaseTime,done);
     if(phase==='closeup'&&(reduced()||phaseTime>=teacherZoomDuration))transition('summary',station,false);
     frameId=requestAnimationFrame(tick);
