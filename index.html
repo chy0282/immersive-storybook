@@ -669,9 +669,10 @@ body:not(.career-active):not(.lok-chapter-active) #stage[data-state="closed"] #c
 .cover-meta {display:flex;align-items:center;justify-content:space-between;gap:6px;color:#567056;font-size:clamp(14px,1.2vw,21px);}
 .cover-meta span:first-child {padding:.16em .53em .2em;background:#e2edd1;border-radius:5px;}
 #coverCount {color:#726149;font-variant-numeric:tabular-nums;}
+#coverLines .proper-name {white-space:nowrap}
 #coverLines {display:grid;margin:.48em 0 .5em;font-size:clamp(22px,min(2.24vw,4.5vh),44px);line-height:1.46;text-wrap:pretty;}
 #coverLines p {grid-area:1/1;margin:0;}
-#coverLines p[aria-hidden="true"] {visibility:hidden;}
+#coverLines p[aria-hidden="true"] {display:none;}
 #coverNext {display:flex;margin-left:auto;min-height:44px;padding:.25em .8em;
   --face:#ffdf90;--edge:#dfbb71;--lip:#c39c50;color:#54452a;font-size:clamp(17px,1.45vw,26px);}
 @media (orientation:portrait) {
@@ -2060,14 +2061,15 @@ button.later-piece:disabled{opacity:1}button.later-piece:not(:disabled){pointer-
   <section id="coverGuide" aria-label="圓夢鳥封面導讀">
     <div id="coverHost" class="class-bird-portrait"><canvas id="coverBird" width="256" height="256" aria-hidden="true"></canvas><u class="proper-name">圓夢鳥</u></div>
     <div id="coverNote">
-      <div class="cover-meta"><span>封面導讀</span><span id="coverCount">自我介紹</span></div>
+      <div class="cover-meta"><span>封面導讀</span><span id="coverCount">自我介紹 1 / 2</span></div>
       <div id="coverLines">
-        <p>大家好！我是伴讀小精靈<u class="proper-name">圓夢鳥</u>。今天，我會陪大家一起讀故事！</p>
-        <p aria-hidden="true">今天我們閱讀的圖書叫甚麼名字？</p>
-        <p aria-hidden="true">封面上的小男孩在做什麼呢？</p>
-        <p aria-hidden="true">在座的同學，你們平時有沒有想過，當自己長大成人之後，想要做甚麼呢？</p>
+        <p data-pose="invite">大家好！我是伴讀小精靈<u class="proper-name">圓夢鳥</u>。</p>
+        <p data-pose="sheepish" aria-hidden="true">咳咳......被你們發現了嗎？其實我是封面上的小鳥，不過只是吃胖了而已。廢話不多說了，讓我們一起閱讀這個故事吧！</p>
+        <p data-question data-pose="read" aria-hidden="true">今天我們閱讀的圖書叫甚麼名字？</p>
+        <p data-question data-pose="observe" aria-hidden="true">封面上的小男孩在做什麼呢？</p>
+        <p data-question data-pose="think" aria-hidden="true">在座的同學，你們平時有沒有想過，當自己長大成人之後，想要做甚麼呢？</p>
       </div>
-      <button type="button" class="btn" id="coverNext" aria-controls="coverLines"><span>下一題</span><span aria-hidden="true">›</span></button>
+      <button type="button" class="btn" id="coverNext" aria-controls="coverLines"><span>下一句</span><span aria-hidden="true">›</span></button>
     </div>
     <span class="sr" id="coverAnnouncement" role="status" aria-live="polite" aria-atomic="true"></span>
   </section>
@@ -2765,14 +2767,29 @@ function makeReadingBird(canvas, atlas, onScreen) {
    observing?.67-.49*lowerGlasses:reading?-1.38:retry?-.90+.43*flap:-1.52+.09*breath;
   const right=name==='think'?.98+.17*wave(t,2):name==='invite'?-.38+.55*flap:
    observing?.67-.49*lowerGlasses:reading?-1.38:retry?-.98+.3*flap:-1.52-.08*breath;
-  return {
-   left:left+landing*1.35,right:right+landing*1.35,headTilt:observing?.012*breath:reading?.07*nod:name==='think'?-.13+.08*nod:.095*nod,
+  const values={
+   sheepish:0,left:left+landing*1.35,right:right+landing*1.35,headTilt:observing?.012*breath:reading?.07*nod:name==='think'?-.13+.08*nod:.095*nod,
    bodyTilt:inviting?.04*wave(t,3.2):.016*nod, bob:(inviting?-12*flap:0)+2.5*breath-landing*24,
    stature:1+.013*breath, blink:reading?.30+.7*blink:blink,wink:retry?bump(t%2.8,.05,1.2):0,
    mouth:(inviting||retry)?.24+.69*(.5+.5*wave(t,1.1)):.20+.13*(breath+1),
    glasses:observing?1:0,glassDrop:lowerGlasses,
    folded:name==='think'?1:0,book:reading?1:0,look:observing?0:reading?2.4*wave(t,4.2):1.7*nod
   };
+  if(name==='sheepish'){
+   // Two small coughs on entry, then a lopsided smile and a sideways glance.
+   const cough=bump(t,.06,.26)+.8*bump(t,.36,.27);
+   values.sheepish=1;
+   values.headTilt=-.145+.04*nod+.085*cough;
+   values.bob+=7*cough;
+   values.blink=Math.max(.50,blink,.93*cough);
+   values.wink=.78;
+   values.look=-6;
+   values.mouth=.12+.48*cough;
+   values.left=-1.28;
+   values.folded=1;
+   values.right=.98;
+  }
+  return values;
  }
  function sample(now){
   const t=(now-started)/1000;
@@ -2800,6 +2817,30 @@ function makeReadingBird(canvas, atlas, onScreen) {
    ctx.lineWidth=5;ctx.lineCap='round';ctx.strokeStyle='#533620';
    ctx.beginPath();ctx.moveTo(-16,3);ctx.quadraticCurveTo(0,-7,16,2);ctx.stroke();
   }
+  ctx.restore();
+ }
+ // The paper droplet uses the head's coordinate system, so it follows the tilt.
+ const sweatDrop=new Path2D('M0 -27C-2 -16 -16 -5 -16 5C-16 25 13 26 15 8C17 -3 7 -15 3 -26Q1 -30 0 -27Z');
+ function drawSheepishFace(amount,now){
+  if(amount<.01)return;
+  ctx.save();
+  ctx.globalAlpha=amount;
+  ctx.strokeStyle='#71512e';ctx.lineWidth=4.5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(169,143);ctx.quadraticCurveTo(186,140,197,130);
+  ctx.moveTo(301,130);ctx.quadraticCurveTo(312,136,328,136);ctx.stroke();
+  const seconds=(now-started)/1000;
+  // Two beads slide past the temple. One rests there while the class reads.
+  const moving=!motionPref.matches&&seconds<3.6;
+  const progress=moving ? unit(((seconds%1.8)-.15)/1.15) : .44;
+  const travel=ease(progress);
+  if(moving)ctx.globalAlpha*=Math.min(1,progress*8,(1-progress)*7);
+  ctx.translate(363+17*travel,93+76*travel);ctx.rotate(-.20);
+  const size=.90+.20*travel;
+  ctx.scale(size,size);
+  ctx.fillStyle='#86cdde';ctx.fill(sweatDrop);
+  ctx.strokeStyle='#457d8c';ctx.lineWidth=2.8;ctx.stroke(sweatDrop);
+  ctx.strokeStyle='#f4ffff';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(-6,-3);ctx.quadraticCurveTo(-12,6,-7,11);ctx.stroke();
   ctx.restore();
  }
  function drawBook(v){
@@ -2835,6 +2876,7 @@ function makeReadingBird(canvas, atlas, onScreen) {
    drawEye(189,169+3*v.book,v.blink,v.look);drawEye(320,164+3*v.book,Math.max(v.blink,v.wink),v.look);
    ctx.save();ctx.translate(0,186);ctx.scale(1,.28+v.mouth*.85);ctx.translate(0,-186);drawPart(lowerBeak);ctx.restore();
    drawPart(topBeak);
+   if(v.sheepish>.01)drawSheepishFace(v.sheepish,now);
    if(v.glasses>.01){
     ctx.save();ctx.globalAlpha=v.glasses;
     ctx.translate(0,(1-v.glasses)*95+51*v.glassDrop-19);
@@ -3417,4 +3459,4 @@ const classroom=(()=>{
  }
  return {showDiscussion(){if(step!==3)setStep(3);},showGuide(visible){bird?.sync(visible);},get active(){return active;},get zoom(){return zoom;},enter,leave,bind,changeZoom,bestView,rotate,finishLine,syncCamera:cameraControls};
 })();
-</script><script src="chapters.js?v=43bfa2e43e9b"></script></body></html>
+</script><script src="chapters.js?v=436c85250787"></script></body></html>

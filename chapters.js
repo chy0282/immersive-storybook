@@ -3333,7 +3333,7 @@ let readingBird=null,encourageTimer=0,birdFlight=null;
 const companionPose={narration:'listen',teacher:'invite',observe:'observe',answer:'think',discuss:'read'};
 let readerSound, setMusicActive;
 const coverLines=Array.from($('coverLines').children);
-const coverPoses=['invite','read','observe','think'];
+const firstCoverQuestion=coverLines.findIndex(line=>line.hasAttribute('data-question'));
 let coverStep=0,coverBird,coverSpace;
 function coverBirdVisible(){
  return ready&&state()==='closed'&&!careerActivity.active&&!lokChapter.active&&!document.hidden&&!$('contentsDialog').open&&!$('comparison').open;
@@ -3341,13 +3341,15 @@ function coverBirdVisible(){
 function setCoverStep(index){
  coverStep=index;
  coverLines.forEach((line,i)=>{if(i===index)line.removeAttribute('aria-hidden');else line.setAttribute('aria-hidden','true');});
- const count=index?'第 '+index+' 題 / 共 '+(coverLines.length-1)+' 題':'自我介紹';
+ const isIntro=index<firstCoverQuestion;
+ const count=isIntro ? '自我介紹 '+(index+1)+' / '+firstCoverQuestion
+   : '第 '+(index-firstCoverQuestion+1)+' 題 / 共 '+(coverLines.length-firstCoverQuestion)+' 題';
  $('coverCount').textContent=count;
  const last=index===coverLines.length-1;
- $('coverNext').firstElementChild.textContent=last?'開始閱讀':'下一題';
+ $('coverNext').firstElementChild.textContent=last?'開始閱讀':index+1<firstCoverQuestion?'下一句':'下一題';
  $('coverNext').setAttribute('aria-controls',last?'stage':'coverLines');
  $('coverAnnouncement').textContent=count+'。'+coverLines[index].textContent;
- coverBird?.setPose(coverPoses[index]);
+ coverBird?.setPose(coverLines[index].dataset.pose);
  displayedStep=null;syncProgress();
 }
 function advanceCover(){
@@ -4529,7 +4531,7 @@ async function init(){
  try{setup3D()}catch(error){console.warn('2D reading mode',error);fallback=true;setupFallback();await loadFallbackPicks()}
  readingBird=makeReadingBird($('perchedBird'),images.companion,()=>!careerActivity.active&&!$('comparison').open&&state()==='open');
  coverBird=makeReadingBird($('coverBird'),images.companion,coverBirdVisible);
- coverBird.setPose(coverPoses[coverStep]);
+ setCoverStep(coverStep);
  const syncCoverBird=()=>coverBird.sync(coverBirdVisible());
  const coverVisibility=new MutationObserver(syncCoverBird);
  for(const modal of [$('contentsDialog'),$('comparison')])coverVisibility.observe(modal,{attributes:true,attributeFilter:['open']});
